@@ -29,7 +29,7 @@ del sources.txt
 :: Création du JAR
 echo Creation du JAR %APP_NAME%.jar...
 cd %BUILD_DIR%
-jar -cvf %APP_NAME%.jar com
+jar -cvf %APP_NAME%.jar mg
 cd ..
 
 :: Copie vers le projet Test
