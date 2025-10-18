@@ -6,29 +6,44 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.RequestDispatcher;
+import java.io.PrintWriter;
 
-@WebServlet(name = "FrontServlet", urlPatterns = {"/"})
 public class FrontServlet extends HttpServlet {
 
+    private RequestDispatcher defaultDispatcher;
+
     @Override
-    public void doGet(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
-        urlPrinter(request, response);
+    public void init() throws ServletException {
+        defaultDispatcher = getServletContext().getNamedDispatcher("default");
     }
 
     @Override
-    public void doPost(HttpServletRequest request, HttpServletResponse response)
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
-        urlPrinter(request, response);
+        handleRequest(request, response);
     }
     
-    public void urlPrinter(HttpServletRequest request, HttpServletResponse response)
+    @Override
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
-        response.setContentType("text/plain");
-        PrintWriter out = response.getWriter();
-        out.println("URL demandée: " + request.getRequestURL().toString());
-        System.out.println("URL demandée: " + request.getRequestURL().toString());
+        handleRequest(request, response);
+    }
+    
+    private void handleRequest(HttpServletRequest request, HttpServletResponse response) 
+            throws ServletException, IOException {
+        String url = request.getRequestURI().substring(request.getContextPath().length());
+        boolean ressourceExists = getServletContext().getResource(url) != null;
+        
+        if (ressourceExists) {
+            defaultDispatcher.forward(request, response);
+        } else {
+            printUrl(response.getWriter(), url);
+        }
     }
 
+    private void printUrl(PrintWriter out, String url) {
+        out.println("URL demandee : " + url);
+    }
+    
 }
