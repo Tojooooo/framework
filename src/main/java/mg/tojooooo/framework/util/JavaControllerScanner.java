@@ -1,18 +1,18 @@
-package src.util;
+package mg.tojooooo.framework.util;
 
 import java.io.File;
 import java.net.URL;
 import java.util.*;
 import java.lang.reflect.Modifier;
 
-import src.annotation.Controller;
+import mg.tojooooo.framework.annotation.FrameworkController;
 
 public class JavaControllerScanner {
     
     public static Set<Class<?>> findControllers() throws Exception {
         Set<Class<?>> controllers = new HashSet<>();
         
-        // ClassLoader pour le classpath
+        // ClassLoader an'ny classpath
         Enumeration<URL> roots = Thread.currentThread()
             .getContextClassLoader()
             .getResources("");
@@ -113,15 +113,13 @@ public class JavaControllerScanner {
     }
     
     private static boolean isControllerClass(Class<?> clazz) {
-        if (clazz.isAnnotationPresent(Controller.class)) {
+        if (clazz.isAnnotationPresent(FrameworkController.class)) {
             return true;
         }
         
         return Arrays.stream(clazz.getAnnotations())
                 .anyMatch(annotation -> 
-                    annotation.annotationType().getSimpleName().equals("Controller") ||
-                    annotation.annotationType().getSimpleName().equals("RestController") ||
-                    annotation.annotationType().getSimpleName().toLowerCase().contains("controller"));
+                    annotation.annotationType().getSimpleName().equals("FrameworkController"));
     }
     
     public static void printControllers(Set<Class<?>> controllers) {
