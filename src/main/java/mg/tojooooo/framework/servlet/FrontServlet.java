@@ -3,13 +3,14 @@ package mg.tojooooo.framework.servlets;
 import java.io.IOException;
 import java.io.PrintWriter;
 import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletContext;
+import jakarta.servlet.RequestDispatcher;
+import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import mg.tojooooo.framework.RouterEngine;
 import mg.tojooooo.framework.util.RouteMapping;
-import jakarta.servlet.RequestDispatcher;
 import java.io.PrintWriter;
 
 public class FrontServlet extends HttpServlet {
@@ -58,8 +59,16 @@ public class FrontServlet extends HttpServlet {
         } else {
             PrintWriter out = response.getWriter();
             RouteMapping routeMapping = routerEngine.findRouteMapping(url);
-            printUrl(out, url);
-            printRouteMap(out, routeMapping);
+            try {
+                String returnValue = routerEngine.getUrlReturnValue(url);
+                if (returnValue == null) {
+                    printUrl(out, url);
+                } else if (returnValue instanceof String) {
+                    out.println(returnValue);
+                }
+            } catch (Exception e) {
+                printError(out, e.getMessage());
+            }
         }
     }
 
@@ -70,6 +79,10 @@ public class FrontServlet extends HttpServlet {
     private void printRouteMap(PrintWriter out, RouteMapping routeMap) {
         if (routeMap == null) out.println("Route introuvable");
         else out.println(routeMap.toString());
+    }
+
+    private void printError(PrintWriter out, String errorMessage) {
+        out.println("error : "+ errorMessage);
     }
     
 }

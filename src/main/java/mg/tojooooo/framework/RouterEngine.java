@@ -13,7 +13,7 @@ import mg.tojooooo.framework.util.RouteMapping;
 
 public class RouterEngine {
     private Set<Class<?>> controllers;
-    private Map<String, RouteMapping> routeMappings; // Changé ici
+    private Map<String, RouteMapping> routeMappings;
 
     public void setControllers(Set<Class<?>> controllers) { this.controllers = controllers; }
     public Set<Class<?>> getControllers() { return controllers; }
@@ -25,7 +25,7 @@ public class RouterEngine {
     }
 
     public void loadControllerUrlMappings() throws Exception {
-        setRouteMappings(findAllRoutes()); // Changé ici
+        setRouteMappings(findAllRoutes());
     }
 
     public RouteMapping findRouteMapping(String url) {
@@ -33,7 +33,15 @@ public class RouterEngine {
             return null;
         }
         
-        return routeMappings.get(url); // Simplifié
+        return routeMappings.get(url);
+    }
+
+    public String getUrlReturnValue(String url) throws Exception {
+        RouteMapping routeMapping = findRouteMapping(url);
+        if (routeMapping == null) return null;
+
+        Object controllerInstance = routeMapping.getControllerClass().getDeclaredConstructor().newInstance();
+        return (String) routeMapping.getMethod().invoke(controllerInstance);
     }
 
     private boolean matchesRoute(String routePattern, String actualUrl) {
