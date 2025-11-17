@@ -36,12 +36,12 @@ public class RouterEngine {
         return routeMappings.get(url);
     }
 
-    public String getUrlReturnValue(String url) throws Exception {
+    public Object getUrlReturnValue(String url) throws Exception {
         RouteMapping routeMapping = findRouteMapping(url);
         if (routeMapping == null) return null;
 
         Object controllerInstance = routeMapping.getControllerClass().getDeclaredConstructor().newInstance();
-        return (String) routeMapping.getMethod().invoke(controllerInstance);
+        return routeMapping.getMethod().invoke(controllerInstance);
     }
 
     private boolean matchesRoute(String routePattern, String actualUrl) {
