@@ -13,6 +13,7 @@ import mg.tojooooo.framework.RouterEngine;
 import mg.tojooooo.framework.util.ModelView;
 import mg.tojooooo.framework.util.RouteMapping;
 import java.io.PrintWriter;
+import java.util.Map;
 
 public class FrontServlet extends HttpServlet {
 
@@ -72,11 +73,18 @@ public class FrontServlet extends HttpServlet {
             } else if (returnValue instanceof String) {
                 out.println(returnValue);
             } else if (returnValue instanceof ModelView) {
+                sendModelViewData(request, response, (ModelView)returnValue);
                 RequestDispatcher disp = request.getRequestDispatcher(((ModelView)returnValue).getView());
                 disp.forward(request, response);
             }
         } catch (Exception e) {
             printError(out, e.getMessage());
+        }
+    }
+
+    private void sendModelViewData(HttpServletRequest request, HttpServletResponse response, ModelView modelView) {
+        for (Map.Entry<String, Object> entry: modelView.getDataMap().entrySet()) {
+            request.setAttribute(entry.getKey(), entry.getValue());
         }
     }
 
