@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import mg.tojooooo.framework.RouterEngine;
+import mg.tojooooo.framework.util.ModelView;
 import mg.tojooooo.framework.util.RouteMapping;
 import java.io.PrintWriter;
 
@@ -57,18 +58,25 @@ public class FrontServlet extends HttpServlet {
         if (ressourceExists) {
             defaultDispatcher.forward(request, response);
         } else {
-            PrintWriter out = response.getWriter();
-            RouteMapping routeMapping = routerEngine.findRouteMapping(url);
-            try {
-                String returnValue = routerEngine.getUrlReturnValue(url);
-                if (returnValue == null) {
-                    printUrl(out, url);
-                } else if (returnValue instanceof String) {
-                    out.println(returnValue);
-                }
-            } catch (Exception e) {
-                printError(out, e.getMessage());
+            processUrlReturnValue(request, response, url);
+        }
+    }
+
+    private void processUrlReturnValue(HttpServletRequest request, HttpServletResponse response, String url) throws IOException {
+        PrintWriter out = response.getWriter();
+        RouteMapping routeMapping = routerEngine.findRouteMapping(url);
+        try {
+            Object returnValue = routerEngine.getUrlReturnValue(url);
+            if (returnValue == null) {
+                printUrl(out, url);
+            } else if (returnValue instanceof String) {
+                out.println(returnValue);
+            } else if (returnValue instanceof ModelView) {
+                RequestDispatcher disp = request.getRequestDispatcher(((ModelView)returnValue).getView());
+                disp.forward(request, response);
             }
+        } catch (Exception e) {
+            printError(out, e.getMessage());
         }
     }
 
