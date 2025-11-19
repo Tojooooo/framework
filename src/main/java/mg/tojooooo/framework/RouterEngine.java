@@ -33,7 +33,37 @@ public class RouterEngine {
             return null;
         }
         
-        return routeMappings.get(url);
+        return getRouteMapping(url);
+    }
+
+    private RouteMapping getRouteMapping(String url) {
+        if (routeMappings.get(url) != null) return routeMappings.get(url);
+
+        String[] urlChunks = url.split("/");
+        for (Map.Entry<String, RouteMapping> entry: routeMappings.entrySet()) {
+            String[] entryUrlChunks = entry.getValue().getUrl().split("/");
+            boolean matches = true;
+            if (urlChunks.length == entryUrlChunks.length) {
+                for (int i = 0; i < urlChunks.length; i++) {
+                    if (!urlChunksMatch(urlChunks[i], entryUrlChunks[i])) {
+                        matches = false;
+                        break;
+                    }
+                }
+                if (matches) return entry.getValue();
+            }
+        }
+
+        return null;
+    }
+
+    private boolean urlChunksMatch(String chunk1, String chunk2) {
+        if (chunk1.equals(chunk2)) return true;
+        if (
+            (chunk1.startsWith("{") && chunk1.endsWith("}")) || 
+            (chunk2.startsWith("{") && chunk2.endsWith("}"))
+        ) return true;
+        return false;
     }
 
     public Object getUrlReturnValue(String url) throws Exception {
