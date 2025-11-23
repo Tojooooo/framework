@@ -11,6 +11,7 @@ import java.util.Set;
 import jakarta.servlet.http.HttpServletRequest;
 
 import mg.tojooooo.framework.annotation.Route;
+import mg.tojooooo.framework.annotation.RequestParam;
 import mg.tojooooo.framework.util.JavaControllerScanner;
 import mg.tojooooo.framework.util.RouteMapping;
 
@@ -42,6 +43,36 @@ public class RouterEngine {
         return getRouteMapping(url);
     }
 
+    
+    public Object getUrlReturnValue(HttpServletRequest request, String url) throws Exception {
+        RouteMapping routeMapping = findRouteMapping(url);
+        if (routeMapping == null) return null;
+
+        Object[] paramValues = processRequestData(request, routeMapping);
+
+        Object controllerInstance = routeMapping.getControllerClass().getDeclaredConstructor().newInstance();
+        return routeMapping.getMethod().invoke(controllerInstance, paramValues);
+    }
+
+    private Object[] processRequestData(HttpServletRequest request, RouteMapping routeMapping) {
+        Method mth = routeMapping.getMethod();
+        Parameter[] params = mth.getParameters();
+        Object[] paramValues = new Object[params.length];
+        ModelMapper modelMapper = new ModelMapper();
+        for (int i = 0; i < params.length; i++) {
+            Class<?> paramType = params[i].getType();
+            // Object requestParamValue = request.getParameter(params[i].getName());
+            if (params[i].isAnnotationPresent(RequestParam.class)) {
+                RequestParam a = params[i].getAnnotation(RequestParam.class);
+                paramValues[i] = modelMapper.map(request.getParameter(a.value()), paramType);
+            } else {
+                paramValues[i] = modelMapper.map(request.getParameter(params[i].getName()), paramType);
+            }
+        }
+        return paramValues;
+    }
+
+
     private RouteMapping getRouteMapping(String url) {
         if (routeMappings.get(url) != null) return routeMappings.get(url);
 
@@ -71,29 +102,6 @@ public class RouterEngine {
         ) return true;
         return false;
     }
-
-    public Object getUrlReturnValue(HttpServletRequest request, String url) throws Exception {
-        RouteMapping routeMapping = findRouteMapping(url);
-        if (routeMapping == null) return null;
-
-        Object[] paramValues = processRequestData(request, routeMapping);
-
-        Object controllerInstance = routeMapping.getControllerClass().getDeclaredConstructor().newInstance();
-        return routeMapping.getMethod().invoke(controllerInstance, paramValues);
-    }
-
-    private Object[] processRequestData(HttpServletRequest request, RouteMapping routeMapping) {
-        Method mth = routeMapping.getMethod();
-        Parameter[] params = mth.getParameters();
-        Object[] paramValues = new Object[params.length];
-        ModelMapper modelMapper = new ModelMapper();
-        for (int i = 0; i < params.length; i++) {
-            Class<?> paramType = params[i].getType();
-            paramValues[i] = modelMapper.map(request.getParameter(params[i].getName()), paramType);
-        }
-        return paramValues;
-    }
-
 
     private boolean matchesRoute(String routePattern, String actualUrl) {
         return routePattern.equals(actualUrl);
