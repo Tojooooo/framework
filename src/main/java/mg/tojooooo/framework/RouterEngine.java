@@ -1,15 +1,21 @@
 package mg.tojooooo.framework;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import jakarta.servlet.http.HttpServletRequest;
+
 import mg.tojooooo.framework.annotation.Route;
 import mg.tojooooo.framework.util.JavaControllerScanner;
 import mg.tojooooo.framework.util.RouteMapping;
+
+import org.modelmapper.ModelMapper;
+
 
 public class RouterEngine {
     private Set<Class<?>> controllers;
@@ -66,13 +72,28 @@ public class RouterEngine {
         return false;
     }
 
-    public Object getUrlReturnValue(String url) throws Exception {
+    public Object getUrlReturnValue(HttpServletRequest request, String url) throws Exception {
         RouteMapping routeMapping = findRouteMapping(url);
         if (routeMapping == null) return null;
 
+        Object[] paramValues = processRequestData(request, routeMapping);
+
         Object controllerInstance = routeMapping.getControllerClass().getDeclaredConstructor().newInstance();
-        return routeMapping.getMethod().invoke(controllerInstance);
+        return routeMapping.getMethod().invoke(controllerInstance, paramValues);
     }
+
+    private Object[] processRequestData(HttpServletRequest request, RouteMapping routeMapping) {
+        Method mth = routeMapping.getMethod();
+        Parameter[] params = mth.getParameters();
+        Object[] paramValues = new Object[params.length];
+        ModelMapper modelMapper = new ModelMapper();
+        for (int i = 0; i < params.length; i++) {
+            Class<?> paramType = params[i].getType();
+            paramValues[i] = modelMapper.map(request.getParameter(params[i].getName()), paramType);
+        }
+        return paramValues;
+    }
+
 
     private boolean matchesRoute(String routePattern, String actualUrl) {
         return routePattern.equals(actualUrl);
