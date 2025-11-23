@@ -12,6 +12,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import mg.tojooooo.framework.annotation.Route;
 import mg.tojooooo.framework.annotation.RequestParam;
+import mg.tojooooo.framework.annotation.PathParam;
 import mg.tojooooo.framework.util.JavaControllerScanner;
 import mg.tojooooo.framework.util.RouteMapping;
 
@@ -62,7 +63,21 @@ public class RouterEngine {
         for (int i = 0; i < params.length; i++) {
             Class<?> paramType = params[i].getType();
             // Object requestParamValue = request.getParameter(params[i].getName());
-            if (params[i].isAnnotationPresent(RequestParam.class)) {
+            if (params[i].isAnnotationPresent(PathParam.class)) {
+                PathParam pp = params[i].getAnnotation(PathParam.class);
+                String[] urlChunks = routeMapping.getUrl().split("/");
+                String[] requestUrlChunks = request.getRequestURI().substring(request.getContextPath().length()).split("/");
+                for (int j = 0; j < urlChunks.length; j++) {
+                    if (urlChunks[j].startsWith("{") && urlChunks[j].endsWith("}")) {
+                        urlChunks[j] = urlChunks[j].replace("{", "");
+                        urlChunks[j] = urlChunks[j].replace("}", "");
+                        if (urlChunks[j].startsWith(pp.value())) {
+                            paramValues[i] = modelMapper.map(requestUrlChunks[j], paramType);
+                            break;
+                        }
+                    }
+                }
+            } else if (params[i].isAnnotationPresent(RequestParam.class)) {
                 RequestParam a = params[i].getAnnotation(RequestParam.class);
                 paramValues[i] = modelMapper.map(request.getParameter(a.value()), paramType);
             } else {
