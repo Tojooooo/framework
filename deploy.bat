@@ -6,6 +6,7 @@ set SRC_DIR=src\main\java
 set BUILD_DIR=build
 set LIB_DIR=lib
 set SERVLET_API_JAR=%LIB_DIR%\servlet-api.jar
+set MODELMAPPER_JAR=%LIB_DIR%\modelmapper-3.2.4.jar
 set TEST_LIB_DIR=..\framework-test\lib
 
 :: Nettoyage
@@ -17,7 +18,7 @@ mkdir %BUILD_DIR%
 :: Compilation
 echo Compilation de la librairie java...
 dir /b /s %SRC_DIR%\*.java > sources.txt
-javac -cp "%SERVLET_API_JAR%" -d %BUILD_DIR% @sources.txt
+javac -cp "%SERVLET_API_JAR%;%MODELMAPPER_JAR%" -d %BUILD_DIR% -parameters @sources.txt
 if errorlevel 1 (
     echo Erreur de compilation!
     del sources.txt
