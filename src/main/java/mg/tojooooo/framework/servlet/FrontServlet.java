@@ -2,6 +2,7 @@ package mg.tojooooo.framework.servlets;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.lang.reflect.Method;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.RequestDispatcher;
@@ -66,7 +67,7 @@ public class FrontServlet extends HttpServlet {
 
     private void processUrlReturnValue(HttpServletRequest request, HttpServletResponse response, String url) throws IOException {
         PrintWriter out = response.getWriter();
-        RouteMapping routeMapping = routerEngine.findRouteMapping(url);
+        RouteMapping routeMapping = routerEngine.findRouteMapping(url,request);
         try {
             Object returnValue = routerEngine.getUrlReturnValue(request, url);
             if (returnValue == null) {
