@@ -2,9 +2,11 @@ package mg.tojooooo.framework;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -12,9 +14,12 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import mg.tojooooo.framework.annotation.Route;
 import mg.tojooooo.framework.annotation.RequestParam;
+import mg.tojooooo.framework.annotation.Get;
 import mg.tojooooo.framework.annotation.PathParam;
+import mg.tojooooo.framework.annotation.Post;
 import mg.tojooooo.framework.util.JavaControllerScanner;
 import mg.tojooooo.framework.util.RouteMapping;
+import mg.tojooooo.framework.util.UrlMappedMethod;
 
 import org.modelmapper.ModelMapper;
 
@@ -36,27 +41,36 @@ public class RouterEngine {
         setRouteMappings(findAllRoutes());
     }
 
-    public RouteMapping findRouteMapping(String url) {
+    public RouteMapping findRouteMapping(String url, HttpServletRequest request) {
         if (routeMappings == null || routeMappings.isEmpty()) {
             return null;
         }
         
-        return getRouteMapping(url);
+        return getRouteMapping(url, request);
     }
 
-    
     public Object getUrlReturnValue(HttpServletRequest request, String url) throws Exception {
-        RouteMapping routeMapping = findRouteMapping(url);
+        RouteMapping routeMapping = findRouteMapping(url, request);
         if (routeMapping == null) return null;
 
         Object[] paramValues = processRequestData(request, routeMapping);
 
         Object controllerInstance = routeMapping.getControllerClass().getDeclaredConstructor().newInstance();
-        return routeMapping.getMethod().invoke(controllerInstance, paramValues);
+        if (!routeMapping.getUrlMappedMethods().isEmpty()) {
+            Method method = routeMapping.getUrlMappedMethods().get(0).getMethod();
+            return method.invoke(controllerInstance, paramValues);
+        }
+        
+        return null;
     }
 
     private Object[] processRequestData(HttpServletRequest request, RouteMapping routeMapping) {
-        Method mth = routeMapping.getMethod();
+        Method mth = !routeMapping.getUrlMappedMethods().isEmpty() 
+            ? routeMapping.getUrlMappedMethods().get(0).getMethod() 
+            : null;
+        
+        if (mth == null) return new Object[0];
+        
         Parameter[] params = mth.getParameters();
         Object[] paramValues = new Object[params.length];
         ModelMapper modelMapper = new ModelMapper();
@@ -88,8 +102,11 @@ public class RouterEngine {
     }
 
 
-    private RouteMapping getRouteMapping(String url) {
-        if (routeMappings.get(url) != null) return routeMappings.get(url);
+    private RouteMapping getRouteMapping(String url, HttpServletRequest request) {
+        if (routeMappings.get(url) != null) {
+            RouteMapping mapping = routeMappings.get(url);
+            return getMatchingMethod(mapping, request);
+        }
 
         String[] urlChunks = url.split("/");
         for (Map.Entry<String, RouteMapping> entry: routeMappings.entrySet()) {
@@ -102,11 +119,39 @@ public class RouterEngine {
                         break;
                     }
                 }
-                if (matches) return entry.getValue();
+                if (matches) {
+                    return getMatchingMethod(entry.getValue(), request);
+                }
             }
         }
 
         return null;
+    }
+
+    private RouteMapping getMatchingMethod(RouteMapping routeMapping, HttpServletRequest request) {
+        String requestMethod = request.getMethod().toUpperCase();
+        List<UrlMappedMethod> urlMappedMethods = routeMapping.getUrlMappedMethods();
+        
+        for (UrlMappedMethod urlMappedMethod : urlMappedMethods) {
+            if (requestMethod.equalsIgnoreCase(urlMappedMethod.getRequestMethod())) {
+                return new RouteMapping(
+                    routeMapping.getControllerClass(), 
+                    Arrays.asList(urlMappedMethod), 
+                    routeMapping.getUrl()
+                );
+            }
+        }
+        
+        // zay hita ihany raha tsisy
+        if (!urlMappedMethods.isEmpty()) {
+            return new RouteMapping(
+                routeMapping.getControllerClass(), 
+                Arrays.asList(urlMappedMethods.get(0)), 
+                routeMapping.getUrl()
+            );
+        }
+        
+        return routeMapping;
     }
 
     private boolean urlChunksMatch(String chunk1, String chunk2) {
@@ -122,9 +167,8 @@ public class RouterEngine {
         return routePattern.equals(actualUrl);
     }
 
-    // Méthode pour obtenir toutes les routes disponibles
     public Map<String, RouteMapping> getAllRoutes() {
-        return new HashMap<>(routeMappings); // Retourne une copie
+        return new HashMap<>(routeMappings);
     }
 
     public Map<String, RouteMapping> findAllRoutes() throws Exception {
@@ -136,18 +180,38 @@ public class RouterEngine {
         
         for (Class<?> controller : controllers) {
             Method[] methods = controller.getDeclaredMethods();
+            Map<String, List<UrlMappedMethod>> routeMethodsMap = new HashMap<>();
             
             for (Method method : methods) {
                 if (method.isAnnotationPresent(Route.class)) {
                     Route annotation = method.getAnnotation(Route.class);
                     String routeUrl = annotation.value();
+                    String requestMethod = determineRequestMethod(method);
                     
-                    allRoutes.put(routeUrl, new RouteMapping(controller, method, annotation));
+                    UrlMappedMethod urlMappedMethod = new UrlMappedMethod(method, requestMethod);
+                    
+                    routeMethodsMap.computeIfAbsent(routeUrl, k -> new ArrayList<>()).add(urlMappedMethod);
                 }
+            }
+            
+            for (Map.Entry<String, List<UrlMappedMethod>> entry : routeMethodsMap.entrySet()) {
+                String routeUrl = entry.getKey();
+                List<UrlMappedMethod> urlMappedMethods = entry.getValue();
+                
+                allRoutes.put(routeUrl, new RouteMapping(controller, urlMappedMethods, routeUrl));
             }
         }
         
         return allRoutes;
+    }
+
+    private String determineRequestMethod(Method method) {
+        if (method.isAnnotationPresent(Get.class)) {
+            return "GET";
+        } else if (method.isAnnotationPresent(Post.class)) {
+            return "POST";
+        }
+        return null;
     }
 
     // Cette méthode n'est plus nécessaire dans la nouvelle logique
@@ -195,9 +259,10 @@ public class RouterEngine {
         
         System.out.println("\n=== ROUTES DISPONIBLES (" + routeMappings.size() + ") ===");
         routeMappings.forEach((url, routeMapping) -> {
-            System.out.println("- URL: " + url);
-            System.out.println("  Controller: " + routeMapping.getControllerClass().getSimpleName());
-            System.out.println("  Méthode: " + routeMapping.getMethod().getName() + "()");
+            // System.out.println("- URL: " + url);
+            // System.out.println("  Controller: " + routeMapping.getControllerClass().getSimpleName());
+            // System.out.println("  Méthode: " + routeMapping.getMethod().getName() + "()");
+            System.out.println(routeMapping.toString());
         });
     }
 
