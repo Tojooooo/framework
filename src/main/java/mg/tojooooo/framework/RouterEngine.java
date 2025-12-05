@@ -2,8 +2,11 @@ package mg.tojooooo.framework;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -94,6 +97,12 @@ public class RouterEngine {
             } else if (params[i].isAnnotationPresent(RequestParam.class)) {
                 RequestParam a = params[i].getAnnotation(RequestParam.class);
                 paramValues[i] = modelMapper.map(request.getParameter(a.value()), paramType);
+            } else if (params[i].getType() == Map.class) {
+                ParameterizedType genericType = (ParameterizedType) params[i].getParameterizedType();
+                Type[] arrTypes = genericType.getActualTypeArguments();
+                if (arrTypes.length == 2 && arrTypes[0] == String.class && arrTypes[1] == Object.class) {
+                    paramValues[i] = processMapParam(request, modelMapper);
+                }
             } else {
                 paramValues[i] = modelMapper.map(request.getParameter(params[i].getName()), paramType);
             }
@@ -101,6 +110,13 @@ public class RouterEngine {
         return paramValues;
     }
 
+    private Map<String, Object> processMapParam(HttpServletRequest request, ModelMapper modelMapper) {
+        Map<String, Object> m = new HashMap<String, Object>();
+        for(String paramName: Collections.list(request.getParameterNames())) {
+            m.put(paramName, modelMapper.map(request.getParameter(paramName), Object.class));
+        }
+        return m;
+    }
 
     private RouteMapping getRouteMapping(String url, HttpServletRequest request) {
         if (routeMappings.get(url) != null) {
