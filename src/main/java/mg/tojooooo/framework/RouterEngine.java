@@ -20,16 +20,20 @@ import java.util.Set;
 import jakarta.servlet.http.HttpServletRequest;
 
 import mg.tojooooo.framework.annotation.Route;
+import mg.tojooooo.framework.dto.JsonData;
+import mg.tojooooo.framework.dto.JsonHolder;
 import mg.tojooooo.framework.annotation.RequestParam;
 import mg.tojooooo.framework.annotation.Get;
+import mg.tojooooo.framework.annotation.Json;
 import mg.tojooooo.framework.annotation.PathParam;
 import mg.tojooooo.framework.annotation.Post;
 import mg.tojooooo.framework.util.JavaControllerScanner;
+import mg.tojooooo.framework.util.ModelView;
 import mg.tojooooo.framework.util.RouteMapping;
 import mg.tojooooo.framework.util.UrlMappedMethod;
 
 import org.modelmapper.ModelMapper;
-
+import com.google.gson.Gson;
 
 public class RouterEngine {
     private Set<Class<?>> controllers;
@@ -65,7 +69,42 @@ public class RouterEngine {
         Object controllerInstance = routeMapping.getControllerClass().getDeclaredConstructor().newInstance();
         if (!routeMapping.getUrlMappedMethods().isEmpty()) {
             Method method = routeMapping.getUrlMappedMethods().get(0).getMethod();
-            return method.invoke(controllerInstance, paramValues);
+            boolean isJson = method.isAnnotationPresent(Json.class);
+            try {
+                Object returnValue = method.invoke(controllerInstance, paramValues);
+                if (isJson) {
+                    JsonData jsonData = new JsonData();
+                    jsonData.status = "success";
+                    jsonData.error = null;
+                    if (returnValue instanceof ModelView) {
+                        jsonData.data = ((ModelView) returnValue).getDataMap();
+                    } else {
+                        jsonData.data = returnValue;
+                    }
+                    Gson gson = new Gson();
+                    JsonHolder jh = new JsonHolder(gson.toJson(jsonData));
+                    return jh;
+                } else {
+                    return returnValue;
+                }
+            } catch (Exception e) {
+                if (isJson) {
+                    JsonData jsonData = new JsonData();
+                    jsonData.status = "error";
+                    jsonData.data = null;
+                    Map<String, String> errorMap = new HashMap<>();
+                    errorMap.put("code", "INTERNAL_ERROR");
+                    errorMap.put("message", e.getMessage() != null ? e.getMessage() : "Une erreur inconnue s'est produite");
+                    errorMap.put("details", e.toString());
+                    Gson gson = new Gson();
+                    jsonData.error = gson.toJson(errorMap);
+                    JsonHolder jh = new JsonHolder(gson.toJson(jsonData));
+                    return jh;
+                } else {
+                    throw e;
+                }
+            }
+            // return method.invoke(controllerInstance, paramValues);
         }
         
         return null;

@@ -12,6 +12,7 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import mg.tojooooo.framework.RouterEngine;
+import mg.tojooooo.framework.dto.JsonHolder;
 import mg.tojooooo.framework.util.ModelView;
 import mg.tojooooo.framework.util.RouteMapping;
 import java.io.PrintWriter;
@@ -78,6 +79,10 @@ public class FrontServlet extends HttpServlet {
                 sendModelViewData(request, response, (ModelView)returnValue);
                 RequestDispatcher disp = request.getRequestDispatcher(((ModelView)returnValue).getView());
                 disp.forward(request, response);
+            } else if (returnValue instanceof JsonHolder) {
+                response.setContentType("application/json");
+                response.setCharacterEncoding("UTF-8");
+                response.getWriter().write(((JsonHolder) returnValue).jsonData);
             }
         } catch (Exception e) {
             printError(out, e.getMessage());
