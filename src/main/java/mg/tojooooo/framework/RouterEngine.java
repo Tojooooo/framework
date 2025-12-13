@@ -101,7 +101,7 @@ public class RouterEngine {
             } else if (params[i].isAnnotationPresent(RequestParam.class)) {
                 RequestParam a = params[i].getAnnotation(RequestParam.class);
                 if (paramType == Boolean.class) {
-                    paramValues[i] = Boolean.parseBoolean(request.getParameter(params[i].getName()));
+                    paramValues[i] = Boolean.parseBoolean(request.getParameter(a.value()));
                 } else {
                     paramValues[i] = modelMapper.map(request.getParameter(a.value()), paramType);
                 }
