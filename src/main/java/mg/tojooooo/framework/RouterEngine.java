@@ -67,7 +67,7 @@ public class RouterEngine {
         return null;
     }
 
-    private Object[] processRequestData(HttpServletRequest request, RouteMapping routeMapping) {
+    private Object[] processRequestData(HttpServletRequest request, RouteMapping routeMapping) throws Exception {
         Method mth = !routeMapping.getUrlMappedMethods().isEmpty() 
             ? routeMapping.getUrlMappedMethods().get(0).getMethod() 
             : null;
@@ -89,22 +89,36 @@ public class RouterEngine {
                         urlChunks[j] = urlChunks[j].replace("{", "");
                         urlChunks[j] = urlChunks[j].replace("}", "");
                         if (urlChunks[j].startsWith(pp.value())) {
-                            paramValues[i] = modelMapper.map(requestUrlChunks[j], paramType);
+                            if (paramType == Boolean.class) {
+                                paramValues[i] = Boolean.parseBoolean(requestUrlChunks[j]);
+                            } else {
+                                paramValues[i] = modelMapper.map(requestUrlChunks[j], paramType);
+                            }
                             break;
                         }
                     }
                 }
             } else if (params[i].isAnnotationPresent(RequestParam.class)) {
                 RequestParam a = params[i].getAnnotation(RequestParam.class);
-                paramValues[i] = modelMapper.map(request.getParameter(a.value()), paramType);
+                if (paramType == Boolean.class) {
+                    paramValues[i] = Boolean.parseBoolean(request.getParameter(params[i].getName()));
+                } else {
+                    paramValues[i] = modelMapper.map(request.getParameter(a.value()), paramType);
+                }
             } else if (params[i].getType() == Map.class) {
                 ParameterizedType genericType = (ParameterizedType) params[i].getParameterizedType();
                 Type[] arrTypes = genericType.getActualTypeArguments();
                 if (arrTypes.length == 2 && arrTypes[0] == String.class && arrTypes[1] == Object.class) {
                     paramValues[i] = processMapParam(request, modelMapper);
+                } else {
+                    throw new Exception("Type de map inattendu. doit etre Map<String, Object>");
                 }
             } else {
-                paramValues[i] = modelMapper.map(request.getParameter(params[i].getName()), paramType);
+                if (paramType == Boolean.class) {
+                    paramValues[i] = Boolean.parseBoolean(request.getParameter(params[i].getName()));
+                } else {
+                    paramValues[i] = modelMapper.map(request.getParameter(params[i].getName()), paramType);
+                }
             }
         }
         return paramValues;
