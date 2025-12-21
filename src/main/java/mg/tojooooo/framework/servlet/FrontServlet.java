@@ -8,6 +8,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.RequestDispatcher;
+import jakarta.servlet.annotation.MultipartConfig;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -18,6 +19,11 @@ import mg.tojooooo.framework.util.RouteMapping;
 import java.io.PrintWriter;
 import java.util.Map;
 
+@MultipartConfig(
+    fileSizeThreshold = 1024 * 1024 * 2,  // 2MB : taille avant écriture temporaire sur disque
+    maxFileSize = 1024 * 1024 * 10,       // 10MB : taille maximale par fichier
+    maxRequestSize = 1024 * 1024 * 50     // 50MB : taille maximale totale de la requête
+)
 public class FrontServlet extends HttpServlet {
 
     private RequestDispatcher defaultDispatcher;

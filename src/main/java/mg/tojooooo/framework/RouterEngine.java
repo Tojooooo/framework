@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Set;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.Part;
 
 import mg.tojooooo.framework.annotation.Route;
 import mg.tojooooo.framework.dto.JsonData;
@@ -30,6 +31,7 @@ import mg.tojooooo.framework.annotation.Post;
 import mg.tojooooo.framework.util.JavaControllerScanner;
 import mg.tojooooo.framework.util.ModelView;
 import mg.tojooooo.framework.util.RouteMapping;
+import mg.tojooooo.framework.util.UploadedFile;
 import mg.tojooooo.framework.util.UrlMappedMethod;
 
 import org.modelmapper.ModelMapper;
@@ -133,11 +135,23 @@ public class RouterEngine {
             } else if (params[i].getType() == Map.class) {
                 ParameterizedType genericType = (ParameterizedType) params[i].getParameterizedType();
                 Type[] arrTypes = genericType.getActualTypeArguments();
-                if (arrTypes.length == 2 && arrTypes[0] == String.class && arrTypes[1] == Object.class) {
-                    paramValues[i] = processMapParam(request, modelMapper);
-                } else {
-                    throw new Exception("Type de map inattendu. doit etre Map<String, Object>");
+                if (arrTypes.length == 2 && arrTypes[0] == String.class) {
+                    // Map<String, List<?>> (traitena fichier)
+                    if (arrTypes[1] instanceof ParameterizedType) {
+                        ParameterizedType listType = (ParameterizedType) arrTypes[1];
+                        if (listType.getRawType() == List.class && 
+                            listType.getActualTypeArguments()[0] == UploadedFile.class) {
+                            paramValues[i] = processFileUploadMap(request);
+                            continue;
+                        }
+                    }
+                    // Map<String, Object> standard
+                    if (arrTypes[1] == Object.class) {
+                        paramValues[i] = processMapParam(request, modelMapper);
+                        continue;
+                    }
                 }
+                throw new Exception("Type de map inattendu. Doit être Map<String, Object> ou Map<String, List<UploadedFile>>");
             } else if (isCustomObject(paramType)) {
                 paramValues[i] = createCustomObject(request, paramType, "");
             } else {
@@ -170,6 +184,28 @@ public class RouterEngine {
             }
         }
         return null;
+    }
+
+    private Map<String, List<UploadedFile>> processFileUploadMap(HttpServletRequest request) throws Exception {
+        Map<String, List<UploadedFile>> fileMap = new HashMap<>();
+        
+        // Récupérer toutes les parts (fichiers + autres champs)
+        Collection<Part> parts = request.getParts();
+        
+        for (Part part : parts) {
+            // Vérifier si c'est un fichier (a un filename)
+            String submittedFileName = part.getSubmittedFileName();
+            if (submittedFileName != null && !submittedFileName.isEmpty()) {
+                String fieldName = part.getName();
+                
+                UploadedFile uploadedFile = new UploadedFile(part);
+                
+                // Ajouter à la map
+                fileMap.computeIfAbsent(fieldName, k -> new ArrayList<>()).add(uploadedFile);
+            }
+        }
+        
+        return fileMap;
     }
 
     private Map<String, Object> handleMapParam(HttpServletRequest request, Parameter param, 
