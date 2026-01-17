@@ -18,6 +18,7 @@ import mg.tojooooo.framework.util.ModelView;
 import mg.tojooooo.framework.util.RouteMapping;
 import java.io.PrintWriter;
 import java.util.Map;
+import java.util.HashMap;
 
 @MultipartConfig(
     fileSizeThreshold = 1024 * 1024 * 2,  // 2MB : taille avant écriture temporaire sur disque
@@ -28,10 +29,12 @@ public class FrontServlet extends HttpServlet {
 
     private RequestDispatcher defaultDispatcher;
     private RouterEngine routerEngine;
+    private Map<String, Object> sess;
 
     @Override
     public void init() throws ServletException {
         defaultDispatcher = getServletContext().getNamedDispatcher("default");
+        sess = new HashMap<>();
         
         ServletContext context = getServletContext();
         routerEngine = (RouterEngine) context.getAttribute("routerEngine");
@@ -74,15 +77,17 @@ public class FrontServlet extends HttpServlet {
 
     private void processUrlReturnValue(HttpServletRequest request, HttpServletResponse response, String url) throws IOException {
         PrintWriter out = response.getWriter();
-        RouteMapping routeMapping = routerEngine.findRouteMapping(url,request);
+        // RouteMapping routeMapping = routerEngine.findRouteMapping(url,request);
         try {
-            Object returnValue = routerEngine.getUrlReturnValue(request, url);
+            Object returnValue = routerEngine.getUrlReturnValue(request, url, sess);
             if (returnValue == null) {
                 printUrl(out, url);
             } else if (returnValue instanceof String) {
                 out.println(returnValue);
             } else if (returnValue instanceof ModelView) {
-                sendModelViewData(request, response, (ModelView)returnValue);
+                ModelView mv = (ModelView) returnValue;
+                if (mv.getSess() != null) this.sess = mv.getSess();
+                sendModelViewData(request, response, mv);
                 RequestDispatcher disp = request.getRequestDispatcher(((ModelView)returnValue).getView());
                 disp.forward(request, response);
             } else if (returnValue instanceof JsonHolder) {
@@ -91,6 +96,8 @@ public class FrontServlet extends HttpServlet {
                 response.getWriter().write(((JsonHolder) returnValue).jsonData);
             }
         } catch (Exception e) {
+            System.err.println(e.getMessage());
+            e.printStackTrace();
             printError(out, e.getMessage());
         }
     }
@@ -99,6 +106,7 @@ public class FrontServlet extends HttpServlet {
         for (Map.Entry<String, Object> entry: modelView.getDataMap().entrySet()) {
             request.setAttribute(entry.getKey(), entry.getValue());
         }
+        request.setAttribute("session", this.sess);
     }
 
     private void printUrl(PrintWriter out, String url) {

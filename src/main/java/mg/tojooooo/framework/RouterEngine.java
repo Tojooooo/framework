@@ -21,6 +21,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.Part;
 
 import mg.tojooooo.framework.annotation.Route;
+import mg.tojooooo.framework.annotation.Session;
 import mg.tojooooo.framework.dto.JsonData;
 import mg.tojooooo.framework.dto.JsonHolder;
 import mg.tojooooo.framework.annotation.RequestParam;
@@ -62,11 +63,11 @@ public class RouterEngine {
         return getRouteMapping(url, request);
     }
 
-    public Object getUrlReturnValue(HttpServletRequest request, String url) throws Exception {
+    public Object getUrlReturnValue(HttpServletRequest request, String url, Map<String, Object> sess) throws Exception {
         RouteMapping routeMapping = findRouteMapping(url, request);
         if (routeMapping == null) return null;
 
-        Object[] paramValues = processRequestData(request, routeMapping);
+        Object[] paramValues = processRequestData(request, routeMapping, sess);
 
         Object controllerInstance = routeMapping.getControllerClass().getDeclaredConstructor().newInstance();
         if (!routeMapping.getUrlMappedMethods().isEmpty()) {
@@ -112,7 +113,7 @@ public class RouterEngine {
         return null;
     }
 
-    private Object[] processRequestData(HttpServletRequest request, RouteMapping routeMapping) throws Exception {
+    private Object[] processRequestData(HttpServletRequest request, RouteMapping routeMapping, Map<String, Object> sess) throws Exception {
         Method mth = !routeMapping.getUrlMappedMethods().isEmpty() 
             ? routeMapping.getUrlMappedMethods().get(0).getMethod() 
             : null;
@@ -145,6 +146,12 @@ public class RouterEngine {
                             continue;
                         }
                     }
+                    // Session Map<String, Object>
+                    if (params[i].isAnnotationPresent(Session.class)) {
+                        paramValues[i] = sess;
+                        continue;
+                    }
+
                     // Map<String, Object> standard
                     if (arrTypes[1] == Object.class) {
                         paramValues[i] = processMapParam(request, modelMapper);
