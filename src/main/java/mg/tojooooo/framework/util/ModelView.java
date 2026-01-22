@@ -9,7 +9,7 @@ public class ModelView {
     private Map<String, Object> sess;
     private Map<String, Object> dataMap;
 
-    public ModelView() {}
+    public ModelView() { setDataMap(new HashMap<String, Object>()); }
     public ModelView(String view) { setView(view); setDataMap(new HashMap<String, Object>()); }
     public ModelView(Map<String, Object> dataMap) { setDataMap(dataMap); setDataMap(new HashMap<String, Object>()); }
     public ModelView(String view, Map<String, Object> dataMap) { setView(view); setDataMap(dataMap); }
