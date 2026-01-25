@@ -21,15 +21,19 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import jakarta.servlet.http.Part;
 
+import mg.tojooooo.framework.config.SecurityConfig;
 import mg.tojooooo.framework.dto.JsonData;
 import mg.tojooooo.framework.dto.JsonHolder;
+import mg.tojooooo.framework.exception.UnauthorizedException;
 import mg.tojooooo.framework.annotation.RequestParam;
+import mg.tojooooo.framework.annotation.Auth;
 import mg.tojooooo.framework.annotation.Get;
 import mg.tojooooo.framework.annotation.Json;
 import mg.tojooooo.framework.annotation.PathParam;
 import mg.tojooooo.framework.annotation.Post;
 import mg.tojooooo.framework.annotation.Route;
 import mg.tojooooo.framework.annotation.Session;
+import mg.tojooooo.framework.annotation.Role;
 import mg.tojooooo.framework.util.JavaControllerScanner;
 import mg.tojooooo.framework.util.ModelView;
 import mg.tojooooo.framework.util.RouteMapping;
@@ -68,6 +72,12 @@ public class RouterEngine {
         RouteMapping routeMapping = findRouteMapping(url, request);
         if (routeMapping == null) return null;
 
+        // Vérification de sécurité
+        if (!routeMapping.getUrlMappedMethods().isEmpty()) {
+            Method method = routeMapping.getUrlMappedMethods().get(0).getMethod();
+            checkAuthorization(method, extractSessionAttributes(request));
+        }
+
         Object[] paramValues = processRequestData(request, routeMapping);
 
         Object controllerInstance = routeMapping.getControllerClass().getDeclaredConstructor().newInstance();
@@ -97,6 +107,24 @@ public class RouterEngine {
                         return mv;
                     }
                     return returnValue;
+                }
+            } catch (UnauthorizedException e) {
+                if (isJson) {
+                    JsonData jsonData = new JsonData();
+                    jsonData.status = "error";
+                    jsonData.data = null;
+                    Map<String, String> errorMap = new HashMap<>();
+                    errorMap.put("code", "UNAUTHORIZED");
+                    errorMap.put("message", e.getMessage());
+                    Gson gson = new Gson();
+                    jsonData.error = gson.toJson(errorMap);
+                    JsonHolder jh = new JsonHolder(gson.toJson(jsonData));
+                    return jh;
+                } else {
+                    // Pour les vues, on peut rediriger vers une page de connexion
+                    ModelView mv = new ModelView("/login.jsp");
+                    mv.addData("error", e.getMessage());
+                    return mv;
                 }
             } catch (Exception e) {
                 if (isJson) {
@@ -154,7 +182,6 @@ public class RouterEngine {
                             continue;
                         }
                     }
-
                     // Session Map<String, Object>
                     if (params[i].isAnnotationPresent(Session.class)) {
                         paramValues[i] = extractSessionAttributes(request);
@@ -269,6 +296,47 @@ public class RouterEngine {
             rsess.setAttribute(key, value);
             System.out.println("<<< valeur vao: "+ key+ " = "+ value);
         }   
+    }
+
+    private void checkAuthorization(Method method, Map<String, Object> sess) {
+        // Vérifier si l'annotation @Auth est présente
+        if (method.isAnnotationPresent(Auth.class)) {
+            Auth auth = method.getAnnotation(Auth.class);
+            if (auth.required()) {
+                String userKey = SecurityConfig.getSessionUserKey();
+                if (sess == null || !sess.containsKey(userKey)) {
+                    throw new UnauthorizedException("Utilisateur non authentifié");
+                }
+            }
+        }
+        
+        // Vérifier les rôles
+        if (method.isAnnotationPresent(Role.class)) {
+            Role roleAnnotation = method.getAnnotation(Role.class);
+            String[] requiredRoles = roleAnnotation.value();
+            
+            if (requiredRoles.length > 0) {
+                String rolesKey = SecurityConfig.getSessionRolesKey();
+                List<String> userRoles = (List<String>) sess.get(rolesKey);
+                
+                if (userRoles == null || userRoles.isEmpty()) {
+                    throw new UnauthorizedException("Aucun rôle défini pour l'utilisateur");
+                }
+                
+                boolean hasRequiredRole = false;
+                for (String requiredRole : requiredRoles) {
+                    if (userRoles.contains(requiredRole)) {
+                        hasRequiredRole = true;
+                        break;
+                    }
+                }
+                
+                if (!hasRequiredRole) {
+                    throw new UnauthorizedException("Rôle insuffisant. Rôles requis: " + 
+                        String.join(", ", requiredRoles));
+                }
+            }
+        }
     }
 
     // Vérifie si c'est un objet personnalisé
