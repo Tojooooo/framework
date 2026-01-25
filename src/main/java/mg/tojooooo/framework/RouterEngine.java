@@ -18,9 +18,9 @@ import java.util.Map;
 import java.util.Set;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import jakarta.servlet.http.Part;
 
-import mg.tojooooo.framework.annotation.Route;
 import mg.tojooooo.framework.dto.JsonData;
 import mg.tojooooo.framework.dto.JsonHolder;
 import mg.tojooooo.framework.annotation.RequestParam;
@@ -28,6 +28,8 @@ import mg.tojooooo.framework.annotation.Get;
 import mg.tojooooo.framework.annotation.Json;
 import mg.tojooooo.framework.annotation.PathParam;
 import mg.tojooooo.framework.annotation.Post;
+import mg.tojooooo.framework.annotation.Route;
+import mg.tojooooo.framework.annotation.Session;
 import mg.tojooooo.framework.util.JavaControllerScanner;
 import mg.tojooooo.framework.util.ModelView;
 import mg.tojooooo.framework.util.RouteMapping;
@@ -79,7 +81,9 @@ public class RouterEngine {
                     jsonData.status = "success";
                     jsonData.error = null;
                     if (returnValue instanceof ModelView) {
-                        jsonData.data = ((ModelView) returnValue).getDataMap();
+                        ModelView mv = (ModelView) returnValue;
+                        jsonData.data = mv.getDataMap();
+                        if (mv.getSess() != null) setSessionAttributes(request, mv.getSess());
                     } else {
                         jsonData.data = returnValue;
                     }
@@ -87,6 +91,11 @@ public class RouterEngine {
                     JsonHolder jh = new JsonHolder(gson.toJson(jsonData));
                     return jh;
                 } else {
+                    if (returnValue instanceof ModelView) {
+                        ModelView mv = (ModelView) returnValue;
+                        if (mv.getSess() != null) setSessionAttributes(request, mv.getSess());
+                        return mv;
+                    }
                     return returnValue;
                 }
             } catch (Exception e) {
@@ -145,6 +154,13 @@ public class RouterEngine {
                             continue;
                         }
                     }
+
+                    // Session Map<String, Object>
+                    if (params[i].isAnnotationPresent(Session.class)) {
+                        paramValues[i] = extractSessionAttributes(request);
+                        continue;
+                    }
+
                     // Map<String, Object> standard
                     if (arrTypes[1] == Object.class) {
                         paramValues[i] = processMapParam(request, modelMapper);
@@ -223,6 +239,36 @@ public class RouterEngine {
         }
         
         return map;
+    }
+
+    private Map<String, Object> extractSessionAttributes(HttpServletRequest req) {
+        HttpSession session = req.getSession();
+        Map<String, Object> sessionMap = new HashMap<>();
+
+        Enumeration<String> attributeNames = session.getAttributeNames();
+        while (attributeNames.hasMoreElements()) {
+            String key = attributeNames.nextElement();
+            Object value = session.getAttribute(key);
+            sessionMap.put(key, value);
+            System.out.println("Clé de session : " + key + " = " + value);
+        }
+
+        return sessionMap;
+    }
+
+    private void setSessionAttributes(HttpServletRequest request, Map<String, Object> sess) {
+        System.out.println("dddddd miditra setsessin");
+        if (sess == null) {
+            return;
+        }
+        
+        HttpSession rsess = request.getSession();
+        for (Map.Entry<String, Object> entry: sess.entrySet()) { 
+            String key = entry.getKey();
+            Object value = entry.getValue();
+            rsess.setAttribute(key, value);
+            System.out.println("<<< valeur vao: "+ key+ " = "+ value);
+        }   
     }
 
     // Vérifie si c'est un objet personnalisé
