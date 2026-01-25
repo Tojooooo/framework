@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Set;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import jakarta.servlet.http.Part;
 
 import mg.tojooooo.framework.config.SecurityConfig;
@@ -67,17 +68,17 @@ public class RouterEngine {
         return getRouteMapping(url, request);
     }
 
-    public Object getUrlReturnValue(HttpServletRequest request, String url, Map<String, Object> sess) throws Exception {
+    public Object getUrlReturnValue(HttpServletRequest request, String url) throws Exception {
         RouteMapping routeMapping = findRouteMapping(url, request);
         if (routeMapping == null) return null;
 
         // Vérification de sécurité
         if (!routeMapping.getUrlMappedMethods().isEmpty()) {
             Method method = routeMapping.getUrlMappedMethods().get(0).getMethod();
-            checkAuthorization(method, sess);
+            checkAuthorization(method, extractSessionAttributes(request));
         }
 
-        Object[] paramValues = processRequestData(request, routeMapping, sess);
+        Object[] paramValues = processRequestData(request, routeMapping);
 
         Object controllerInstance = routeMapping.getControllerClass().getDeclaredConstructor().newInstance();
         if (!routeMapping.getUrlMappedMethods().isEmpty()) {
@@ -90,7 +91,9 @@ public class RouterEngine {
                     jsonData.status = "success";
                     jsonData.error = null;
                     if (returnValue instanceof ModelView) {
-                        jsonData.data = ((ModelView) returnValue).getDataMap();
+                        ModelView mv = (ModelView) returnValue;
+                        jsonData.data = mv.getDataMap();
+                        if (mv.getSess() != null) setSessionAttributes(request, mv.getSess());
                     } else {
                         jsonData.data = returnValue;
                     }
@@ -98,6 +101,11 @@ public class RouterEngine {
                     JsonHolder jh = new JsonHolder(gson.toJson(jsonData));
                     return jh;
                 } else {
+                    if (returnValue instanceof ModelView) {
+                        ModelView mv = (ModelView) returnValue;
+                        if (mv.getSess() != null) setSessionAttributes(request, mv.getSess());
+                        return mv;
+                    }
                     return returnValue;
                 }
             } catch (UnauthorizedException e) {
@@ -141,7 +149,7 @@ public class RouterEngine {
         return null;
     }
 
-    private Object[] processRequestData(HttpServletRequest request, RouteMapping routeMapping, Map<String, Object> sess) throws Exception {
+    private Object[] processRequestData(HttpServletRequest request, RouteMapping routeMapping) throws Exception {
         Method mth = !routeMapping.getUrlMappedMethods().isEmpty() 
             ? routeMapping.getUrlMappedMethods().get(0).getMethod() 
             : null;
@@ -176,7 +184,7 @@ public class RouterEngine {
                     }
                     // Session Map<String, Object>
                     if (params[i].isAnnotationPresent(Session.class)) {
-                        paramValues[i] = sess;
+                        paramValues[i] = extractSessionAttributes(request);
                         continue;
                     }
 
@@ -258,6 +266,36 @@ public class RouterEngine {
         }
         
         return map;
+    }
+
+    private Map<String, Object> extractSessionAttributes(HttpServletRequest req) {
+        HttpSession session = req.getSession();
+        Map<String, Object> sessionMap = new HashMap<>();
+
+        Enumeration<String> attributeNames = session.getAttributeNames();
+        while (attributeNames.hasMoreElements()) {
+            String key = attributeNames.nextElement();
+            Object value = session.getAttribute(key);
+            sessionMap.put(key, value);
+            System.out.println("Clé de session : " + key + " = " + value);
+        }
+
+        return sessionMap;
+    }
+
+    private void setSessionAttributes(HttpServletRequest request, Map<String, Object> sess) {
+        System.out.println("dddddd miditra setsessin");
+        if (sess == null) {
+            return;
+        }
+        
+        HttpSession rsess = request.getSession();
+        for (Map.Entry<String, Object> entry: sess.entrySet()) { 
+            String key = entry.getKey();
+            Object value = entry.getValue();
+            rsess.setAttribute(key, value);
+            System.out.println("<<< valeur vao: "+ key+ " = "+ value);
+        }   
     }
 
     private void checkAuthorization(Method method, Map<String, Object> sess) {

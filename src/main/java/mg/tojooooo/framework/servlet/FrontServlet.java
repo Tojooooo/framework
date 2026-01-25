@@ -79,14 +79,13 @@ public class FrontServlet extends HttpServlet {
         PrintWriter out = response.getWriter();
         // RouteMapping routeMapping = routerEngine.findRouteMapping(url,request);
         try {
-            Object returnValue = routerEngine.getUrlReturnValue(request, url, sess);
+            Object returnValue = routerEngine.getUrlReturnValue(request, url);
             if (returnValue == null) {
                 printUrl(out, url);
             } else if (returnValue instanceof String) {
                 out.println(returnValue);
             } else if (returnValue instanceof ModelView) {
                 ModelView mv = (ModelView) returnValue;
-                if (mv.getSess() != null) this.sess = mv.getSess();
                 sendModelViewData(request, response, mv);
                 RequestDispatcher disp = request.getRequestDispatcher(((ModelView)returnValue).getView());
                 disp.forward(request, response);
@@ -106,7 +105,6 @@ public class FrontServlet extends HttpServlet {
         for (Map.Entry<String, Object> entry: modelView.getDataMap().entrySet()) {
             request.setAttribute(entry.getKey(), entry.getValue());
         }
-        request.setAttribute("session", this.sess);
     }
 
     private void printUrl(PrintWriter out, String url) {
