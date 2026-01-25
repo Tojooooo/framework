@@ -74,7 +74,7 @@ public class FrontServlet extends HttpServlet {
 
     private void processUrlReturnValue(HttpServletRequest request, HttpServletResponse response, String url) throws IOException {
         PrintWriter out = response.getWriter();
-        RouteMapping routeMapping = routerEngine.findRouteMapping(url,request);
+        // RouteMapping routeMapping = routerEngine.findRouteMapping(url,request);
         try {
             Object returnValue = routerEngine.getUrlReturnValue(request, url);
             if (returnValue == null) {
@@ -82,7 +82,8 @@ public class FrontServlet extends HttpServlet {
             } else if (returnValue instanceof String) {
                 out.println(returnValue);
             } else if (returnValue instanceof ModelView) {
-                sendModelViewData(request, response, (ModelView)returnValue);
+                ModelView mv = (ModelView) returnValue;
+                sendModelViewData(request, response, mv);
                 RequestDispatcher disp = request.getRequestDispatcher(((ModelView)returnValue).getView());
                 disp.forward(request, response);
             } else if (returnValue instanceof JsonHolder) {
@@ -91,6 +92,8 @@ public class FrontServlet extends HttpServlet {
                 response.getWriter().write(((JsonHolder) returnValue).jsonData);
             }
         } catch (Exception e) {
+            System.err.println(e.getMessage());
+            e.printStackTrace();
             printError(out, e.getMessage());
         }
     }
